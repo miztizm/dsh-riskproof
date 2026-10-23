@@ -24,16 +24,22 @@ export class CapabilityResolver {
     const cached = cache.get(name);
     if (cached) return [...cached];
 
+    const capabilities = this.inspect(name, agent);
+    cache.set(name, capabilities);
+    return [...capabilities];
+  }
+
+  /** Preview metadata without warming a cache later used by real execution. */
+  inspect(name: string, agent?: Agent): SecurityCapability[] {
+    if (Object.hasOwn(this.overrides, name)) return [...this.overrides[name]];
     let definition = this.ctx.tools.get(name);
     if (agent) definition = this.ctx.tools.get(name, agent) ?? definition;
 
-    const capabilities = classifyTool({
+    return classifyTool({
       name,
       description: definition?.description,
       inputSchema: definition?.parameters,
     });
-    cache.set(name, capabilities);
-    return [...capabilities];
   }
 
   invalidate(): void {

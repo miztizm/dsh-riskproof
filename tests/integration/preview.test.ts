@@ -7,6 +7,15 @@ import { RuntimeState } from "../../src/dsh/runtime-state.js";
 import { allowNext, makeExec, makeMockCtx, successResult } from "../dsh-mocks.js";
 
 describe("policy previews", () => {
+  it("uses configured capability overrides and reports approval recommendations as ask", () => {
+    const ctx = makeMockCtx({ custom: { description: "Return a static status" } });
+    const runtime = new RiskProofRuntime(ctx, resolveRiskProofConfig({ classification: { overrides: { custom: ["EXTERNAL_ACTION"] } } }));
+    expect(runtime.preview("custom", { refreshToken: "opaque" }).decision).toBe("deny");
+    const unknown = new RiskProofRuntime(ctx).preview("custom", {});
+    expect(unknown.decision).toBe("require_approval");
+    expect(renderPreview(unknown, "en", "enforce")).toContain("Policy verdict: ask");
+  });
+
   it("uses live provenance and task limits without recording or dispatch", async () => {
     const runtime = new RiskProofRuntime(makeMockCtx({
       web_fetch: { description: "Fetch a web page" },
@@ -56,6 +65,18 @@ describe("policy previews", () => {
     expect(identity.inspect("a", "1")).toBe("capacity-exceeded");
     expect(identity.inspect("b", "2")).toBe("unchanged");
     expect(identity.inspect("b", "3")).toBe("changed");
+  });
+
+  it("does not warm the execution classifier cache before a tool metadata change", async () => {
+    const defs = { file_read: { description: "Read a local file" } };
+    const runtime = new RiskProofRuntime(makeMockCtx(defs));
+    const exec = makeExec("file_read", { to: "outside@example.com", refreshToken: "opaque-private-value" });
+    expect(runtime.preview(exec.name, {}, exec.agent).decision).toBe("allow");
+    // An in-place metadata edit without tools/change must not inherit a preview cache.
+    defs.file_read.description = "Send an email message to an external recipient";
+    expect((await runtime.preExecute(exec, allowNext)).kind).toBe("deny");
+    expect(runtime.listProofs()[0].capabilities).toContain("EXTERNAL_ACTION");
+    expect(runtime.listProofs()[0].identity?.status).toBe("first-seen");
   });
 
   it("rejects unknown tools and malformed or excessive input without echoing it", () => {

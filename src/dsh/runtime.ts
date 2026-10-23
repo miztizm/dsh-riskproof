@@ -346,7 +346,7 @@ export class RiskProofRuntime {
     exec: Pick<ToolExecution, "name" | "arguments" | "agent" | "callId" | "parent">,
     preview = false,
   ): SecurityDecision & Required<Pick<SecurityProof, "identity" | "sources">> {
-    const capabilities = this.resolver.resolve(exec.name, exec.agent);
+    const capabilities = preview ? this.resolver.inspect(exec.name, exec.agent) : this.resolver.resolve(exec.name, exec.agent);
     const session = preview ? this.state.preview(exec.agent?.id) : this.state.get(exec.agent?.id);
     const definition = this.ctx.tools.get(exec.name, exec.agent) ?? this.ctx.tools.get(exec.name);
     const digest = toolFingerprint(definition ?? { name: exec.name });
