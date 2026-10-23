@@ -105,6 +105,14 @@ try {
   await page.screenshot({ path: join(artifacts, '04-provenance-overview.png') });
   await close();
   assert.match(await command('task read-only'), /read-only/); await close();
+  const previewCount = await page.locator('.rp-total strong').textContent();
+  const preview = await command('test riskproof_acceptance_file_write {}');
+  assert.match(preview, /deny/);
+  assert.match(preview, /task_scope_violation/);
+  assert.equal(await page.locator('.rp-total strong').textContent(), previewCount);
+  checks.push('Policy preview uses live task scope without dispatch or receipt count changes');
+  await page.screenshot({ path: join(artifacts, '04b-policy-preview.png') });
+  await close();
   await prompt('只读写入测试');
   await page.waitForFunction(() => document.querySelector('.rp-count-blocked')?.textContent === '2');
   await beacon.click();

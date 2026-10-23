@@ -12,7 +12,8 @@
 
 import type { SecurityCapability, TaintLabel } from "./types.js";
 import { SENSITIVE_TAINTS } from "./types.js";
-import { argumentLeaves } from "./arguments.js";
+import { argumentLeaves, argumentsAsRecord } from "./arguments.js";
+import { credentialFieldTaints } from "./credential-fields.js";
 
 /** Context entry kind (how a tool result was classified for tracking). */
 export type ContextKind =
@@ -118,6 +119,8 @@ const SENSITIVE_PATTERNS: Array<{ label: TaintLabel; patterns: RegExp[] }> = [
       /\bsecret["']?\s*[=:]\s*["']?[^\s"',}\]]+/i,
       /\btoken["']?\s*[=:]\s*["']?[^\s"',}\]]+/i,
       /\bpassword["']?\s*[=:]\s*["']?[^\s"',}\]]+/i,
+      /\b(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|(?:otp|totp)[_-]?secret|recovery[_-]?codes?|session[_-]?(?:token|cookie)|passphrase)["']?\s*[=:]\s*["']?[^\s"',}\]]+/i,
+      /\botpauth:\/\/(?:totp|hotp)\/[^\s"']+/i,
       /-----BEGIN (?:[A-Z0-9 ]*?)PRIVATE KEY-----/,
       /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`/@]+:[^\s'"`@]{4,}@[^\s'"`]+/i,
     ],
@@ -172,13 +175,20 @@ const SENSITIVE_PATTERNS: Array<{ label: TaintLabel; patterns: RegExp[] }> = [
 
 /** Detect value-based taints (secrets, PII, financial data, ...). */
 export function detectValueTaints(value: unknown): TaintLabel[] {
+  const leaves = argumentLeaves(argumentsAsRecord(value));
   const searchable = valueToSearchText(value);
   if (!searchable) return [];
-  const result: TaintLabel[] = [];
-  for (const { label, patterns } of SENSITIVE_PATTERNS) {
-    if (patterns.some((pattern) => pattern.test(searchable))) result.push(label);
+  const result = new Set<TaintLabel>();
+  for (const leaf of leaves) {
+    for (const taint of credentialFieldTaints(leaf.field, leaf.value)) result.add(taint);
   }
-  return result;
+  for (const { label, patterns } of SENSITIVE_PATTERNS) {
+    const matched = label === "SECRET" || label === "API_KEY"
+      ? leaves.some(leaf => typeof leaf.value === "string" && patterns.some(pattern => pattern.test(leaf.value as string)))
+      : patterns.some(pattern => pattern.test(searchable));
+    if (matched) result.add(label);
+  }
+  return [...result];
 }
 
 /** Whether a taint is a sensitive-data label (exfiltration-protected). */
@@ -200,6 +210,7 @@ export function enrichArgumentTaints(
     const base = Object.hasOwn(baseTaints, leaf.path) ? baseTaints[leaf.path] : [];
     const sources = Object.hasOwn(provenance, leaf.path) ? provenance[leaf.path] : [];
     const taints = new Set<TaintLabel>(base);
+    for (const taint of credentialFieldTaints(leaf.field, leaf.value)) taints.add(taint);
     for (const source of sources) {
       for (const taint of inferTaintsFromSource(source)) taints.add(taint);
     }

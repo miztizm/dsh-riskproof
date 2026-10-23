@@ -12,7 +12,7 @@ A persistent security beacon shows redacted execution receipts. Deterministic ru
 Requires Node.js 22.19+, with DSH and pnpm installed:
 
 ```bash
-dsh plugin --profile web add dsh-riskproof@0.5.0
+dsh plugin --profile web add dsh-riskproof@0.6.0
 dsh --profile web --dump-config
 ```
 
@@ -85,6 +85,7 @@ Commands remain secondary entries; long output is collapsed by default:
 | Restrict to inspection | `/riskproof task read-only` |
 | Keep tool capabilities local | `/riskproof task local-only` |
 | Restore ordinary task scope | `/riskproof task standard` |
+| Preview a registered tool without executing it | `/riskproof test <tool> <JSON>` |
 | Optional isolated rehearsals | `/riskproof demo` |
 
 The model can also call the read-only `riskproof_report` tool. The beacon reads redacted
@@ -100,6 +101,18 @@ credential output protection and effective rule posture. Explicit overrides that
 strict preset remain visible. Recent risk cards also explain the next step.
 These are read-only configuration checks, with no test tool dispatch, credential reads or
 extra activity counts. See the [protection checks guide](docs/protection-checks.md).
+
+## Preview before executing
+
+Use `/riskproof test send_email {"to":"outside@example.com","body":{"refreshToken":"synthetic-example"}}`
+with a tool registered in your session. See the policy verdict, labels and matched rules
+using current task restrictions and retained provenance. It makes no tool call, adds no receipt
+and never updates the tool identity baseline. Use synthetic inputs; results exclude arguments.
+Other plugins, host approval and actual output are outside the preview.
+
+Opaque OAuth tokens, TOTP secrets and private keys in exact nested credential fields now
+receive sensitive labels even without a provider-specific prefix. Detected output labels
+survive trusted declassification. See [policy previews and credential fields](docs/policy-preview.md).
 
 ## What RiskProof answers
 
@@ -142,7 +155,7 @@ Alternatively, build a local package from the repository root:
 npm ci
 mkdir -p artifacts
 npm pack --pack-destination artifacts
-dsh plugin --profile web add ./artifacts/dsh-riskproof-0.5.0.tgz
+dsh plugin --profile web add ./artifacts/dsh-riskproof-0.6.0.tgz
 
 # confirm the bundled patch was composed
 dsh --profile web --dump-config
@@ -150,7 +163,7 @@ dsh --profile web --dump-config
 
 The package declares a DSH bundle, so `plugin add` composes its `riskproof` row automatically. No second install or manual row is required. Restart the profile to see the beacon, then click it to inspect the current conversation.
 
-The current version is **0.5.0**. See [installation and update instructions](docs/installation.md). Installation, SDK host startup,
+The current version is **0.6.0**. See [installation and update instructions](docs/installation.md). Installation, SDK host startup,
 commands and tool execution have been verified on DSH 0.1.0-rc.7 and 0.1.2-rc.1.
 Chrome desktop and narrow-viewport Web acceptance also passed on DSH 0.1.2-rc.1,
 including provenance and read-only denials through the real Agent loop with a local

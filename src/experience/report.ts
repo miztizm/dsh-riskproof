@@ -51,8 +51,8 @@ export function renderReport(snapshot: ReportSnapshot, view: "status" | "trace" 
   if (!proofs.length) lines.push("", t("还没有安全记录。先运行 /riskproof demo 体验溯源拦截，再开始日常任务。", "No security records yet. Try /riskproof demo to see a provenance interception, then start your task."));
   const recent = view === "trace" ? proofs.slice(-10) : proofs.filter((p) => p.decision !== "allow").slice(-3);
   for (const proof of recent) lines.push("", ...renderProof(proof, zh));
-  lines.push("", t("入口: /riskproof trace · /riskproof demo · /riskproof task read-only · /riskproof help",
-    "Commands: /riskproof trace · /riskproof demo · /riskproof task read-only · /riskproof help"));
+  lines.push("", t("入口: /riskproof trace · /riskproof test <tool> <JSON> · /riskproof demo · /riskproof task read-only · /riskproof help",
+    "Commands: /riskproof trace · /riskproof test <tool> <JSON> · /riskproof demo · /riskproof task read-only · /riskproof help"));
   lines.push(t("证据不包含参数或结果正文。展示内容会进入 DSH 命令／工具日志。", "Evidence excludes argument and result bodies. Displayed reports enter DSH command/tool logs."));
   return lines.join("\n");
 }

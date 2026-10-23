@@ -6,12 +6,14 @@ import type { RiskProofRuntime } from "./runtime.js";
 import { renderReport } from "../experience/report.js";
 import { renderHealthReport } from "../experience/health.js";
 import { runRehearsal } from "../experience/rehearsal.js";
+import { parsePreview, PREVIEW_USAGE, renderPreview } from "../experience/preview.js";
 
 const HELP = [
   "🛡 RiskProof · 安全中心 / Security center",
   "/riskproof — 当前会话安全账单 / session receipt",
   "/riskproof trace — 最近 10 次调用的来源、标签与执行回执 / provenance timeline",
   "/riskproof doctor — 只读配置检查与修复建议 / protection checks",
+  `${PREVIEW_USAGE} — 不执行工具的规则试算 / policy preview without dispatch`,
   "/riskproof demo — 无副作用防护演练 / isolated rehearsal",
   "/riskproof task read-only — 只读：阻止写入、外发、shell 和未知工具",
   "/riskproof task local-only — 本地：阻止网络工具、shell 和未知工具",
@@ -43,12 +45,22 @@ export function installExperience(ctx: Context, runtime: RiskProofRuntime): void
     inner.commands.register({
       name: "riskproof",
       description: "🛡 安全账单、数据溯源、防护演练 / Security receipt & provenance",
-      input: { hint: "trace | doctor | demo | task read-only | task local-only | task standard | help" },
+      input: { hint: "trace | doctor | test <tool> <JSON> | demo | task read-only | task local-only | task standard | help" },
       recordInput: false,
       handler: ({ agent, rawInput }) => {
         const input = rawInput.trim();
         if (input === "help") return { kind: "success", text: HELP };
         const snapshot = runtime.report(agent.id);
+        if (input === "test" || input.startsWith("test ")) {
+          try {
+            const { name, args } = parsePreview(input.slice(4).trim());
+            return { kind: "success", text: renderPreview(runtime.preview(name, args, agent), snapshot.language, snapshot.mode) };
+          } catch {
+            return { kind: "error", text: (snapshot.language === "zh-CN"
+              ? "无法试算。请使用当前会话已注册的工具名和有效 JSON 对象（最多 32 KiB，64 层，10000 个节点）。请使用合成数据。"
+              : "Cannot preview. Use a registered session tool and a valid JSON object (up to 32 KiB, 64 levels, 10000 nodes). Use synthetic data.") + "\n" + PREVIEW_USAGE };
+          }
+        }
         if (input === "doctor") return { kind: "success", text: renderHealthReport(snapshot) };
         if (input === "demo") return { kind: "success", text: runRehearsal(snapshot.language) };
         if (input.startsWith("task ")) {

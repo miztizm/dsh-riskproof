@@ -48,6 +48,17 @@ export class RuntimeState {
       throw new Error("RiskProof session capacity reached; close unused sessions before starting another.");
     }
 
+    const session = this.createSession();
+    this.sessions.set(key, session);
+    return session;
+  }
+
+  /** Inspect live context or use a detached empty state without consuming a slot. */
+  preview(agentId: string | undefined): SessionState {
+    return this.peek(agentId) ?? this.createSession();
+  }
+
+  private createSession(): SessionState {
     const tracker = new ContextTracker({
       maxEntries: this.config.provenance.maxEntries,
       maxEntryBytes: this.config.provenance.maxEntryBytes,
@@ -65,7 +76,6 @@ export class RuntimeState {
         chainWindow: this.config.toolchain.chainWindow,
       }),
     };
-    this.sessions.set(key, session);
     return session;
   }
 

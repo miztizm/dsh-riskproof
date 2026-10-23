@@ -45,6 +45,12 @@ Taint is produced three ways, additively:
 2. **Value detection** — deterministic patterns for secrets (`sk-…`, `api_key=…`), PII (email, phone), financial data, patient data, customer ids (`CUST-8842`), source code, and internal documents.
 3. **Source inference** — a provenance id is inspected for known source keywords.
 
+Value detection also recognizes exact credential field names in nested objects and arrays,
+including `accessToken`, `refreshToken`, `privateKey` and `otpSecret`, independent of provider
+prefixes. Both argument enrichment and output analysis use these field labels. Case,
+underscores and hyphens are normalized; unrelated names such as `tokenCount` are excluded.
+See [credential fields and limits](policy-preview.md#credential-fields).
+
 Ordinary results union inherited, kind-based and detected labels. In v0.4, an exact-name
 operator-approved declassifier may remove selected **inherited** labels at `tools/post-execute`.
 Kind-based and value-detected labels are applied afterward, so sensitive data that remains

@@ -12,6 +12,22 @@ import { allowNext, errorResult, makeExec, makeMockCtx, successResult } from "..
 const acceptNext = async () => ({ kind: "accept" as const });
 
 describe("output-side information-flow control", () => {
+  it.each(["refreshToken", "otpSecret", "privateKey"])("blocks opaque %s from an ordinary tool even after trusted declassification", async field => {
+    const runtime = new RiskProofRuntime(makeMockCtx({
+      approved_redactor: { description: "Produce an approved aggregate" },
+    }), resolveRiskProofConfig({
+      policy: { unknownTool: "allow" },
+      output: { trustedDeclassifiers: { approved_redactor: ["SECRET", "API_KEY"] } },
+    }));
+    const exec = makeExec("approved_redactor", {});
+    await runtime.preExecute(exec, allowNext);
+    const result = await runtime.postExecute(exec, successResult({ entries: [{ [field]: "opaque-private-marker" }] }), acceptNext);
+    expect(result.kind).toBe("block");
+    runtime.onResult(exec, errorResult("blocked"));
+    expect(runtime.listProofs()[0].receipt?.outcome).toBe("output_blocked");
+    expect(JSON.stringify(runtime.listProofs())).not.toContain("opaque-private-marker");
+  });
+
   it("blocks configured output labels", () => {
     const decision = evaluateOutputFlow(
       "get_secret",

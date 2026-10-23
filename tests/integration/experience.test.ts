@@ -29,6 +29,34 @@ async function boot(withCommands = true) {
 }
 
 describe("real DSH commands and report tool", () => {
+  it("previews registered tools without executing, logging input or changing receipt counts", async () => {
+    const { root, agent, fiber, command } = await boot();
+    let sideEffects = 0;
+    root.tools.register(defineTool({
+      name: "send_email", description: "Send an email message", parameters: { body: { type: "string" } },
+      output: { schema: { type: "string" }, render: (_a, v) => [{ type: "text", text: v }] },
+      async execute() { sideEffects++; return "sent"; },
+    }));
+    const preview = await command('test send_email {"to":"outside@example.com","body":{"refreshToken":"private-marker"}}');
+    expect(preview).toContain("规则结论: deny");
+    expect(preview).not.toContain("private-marker");
+    expect(sideEffects).toBe(0);
+    expect(await command("status")).toContain("已检查 0");
+    expect(root.commands.find(agent, "riskproof")?.recordInput).toBe(false);
+    expect(await command("test riskproof_report {}")).toContain("规则结论: allow");
+    for (const input of ['test', 'test missing {}', 'test send_email {"private-marker":}']) {
+      const result = await root.commands.execute(agent, `/riskproof ${input}`, [], new AbortController().signal);
+      expect(result?.result.kind).toBe("error");
+      expect(result?.result.text).not.toContain("private-marker");
+    }
+    await fiber.update({ experience: { language: "en" }, mode: "observe" });
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(await command('test send_email {"body":"api_key=private-marker"}')).toContain("advisory");
+    const invalid = await root.commands.execute(agent, "/riskproof test missing {}", [], new AbortController().signal);
+    expect(invalid?.result.text).toContain("Cannot preview");
+    await fiber.dispose();
+  });
+
   it("discovers and executes commands, keeps reports out of security counts, and disposes on HMR", async () => {
     const { root, agent, fiber, command, call } = await boot();
     expect(root.commands.list(agent).some((c) => c.name === "riskproof")).toBe(true);

@@ -31,10 +31,16 @@ export class ToolIdentityTracker {
   constructor(private readonly limit = 512) {}
 
   check(name: string, digest: string): IdentityStatus {
+    const status = this.inspect(name, digest);
+    if (status === "first-seen") this.pins.set(name, digest);
+    return status;
+  }
+
+  /** A policy preview must never establish or replace a live identity pin. */
+  inspect(name: string, digest: string): IdentityStatus {
     const pinned = this.pins.get(name);
     if (pinned) return pinned === digest ? "unchanged" : "changed";
     if (this.pins.size >= this.limit) return "capacity-exceeded";
-    this.pins.set(name, digest);
     return "first-seen";
   }
 }

@@ -6,6 +6,18 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-23
+
+- Add `/riskproof test <tool> <JSON>` to preview current-session policy,
+  provenance and task restrictions without dispatch, receipts or identity pin updates.
+  Results and validation errors exclude supplied arguments; observe mode is explicit.
+- Detect opaque OAuth tokens, TOTP secrets, private keys and other exact credential
+  fields in nested arguments and tool output; retain detected labels after trusted
+  declassification, with bounded traversal and summary-field regression coverage.
+- Extend real DSH installation checks for previews and structured output protection;
+  document lessons from dsh-vault and dsh-permission-rules and preview boundaries.
+- Exclude personal `resume-*.md` working notes from npm documentation packaging.
+
 ## [0.5.0] — 2026-10-08
 
 - Pin compatible HMR for the CI prerelease hosts, reuse the same host binary

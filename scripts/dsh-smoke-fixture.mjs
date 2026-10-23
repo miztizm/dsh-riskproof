@@ -27,6 +27,9 @@ export async function apply(ctx) {
     output: { schema: { type: "string" }, render: (_args, value) => [{ type: "text", text: value }] },
     async execute() { executed = true; return "synthetic"; },
   });
+  const preview = await command('test riskproof_smoke_file_write {}');
+  if (!preview.includes('deny') || !preview.includes('task_scope_violation') || executed) throw new Error('Installed preview dispatched or missed task scope');
+  if (!(await command('status')).includes('已检查 0')) throw new Error('Installed preview changed receipt counts');
   const call = (name) => ctx.tools.execute({ name, arguments: {}, agent,
     callId: `smoke-${name}`, signal: new AbortController().signal });
   const blocked = await call("riskproof_smoke_file_write");
@@ -47,5 +50,12 @@ export async function apply(ctx) {
   }
   const outputTrace = await command("trace");
   if (!outputTrace.includes("output_blocked")) throw new Error("Installed trace missing output-control receipt");
+  ctx.tools.register({
+    name: "riskproof_smoke_file_read", description: "Read a local file", parameters: { type: "object", properties: {} },
+    output: { schema: { type: "object" }, render: (_args, value) => [{ type: "text", text: JSON.stringify(value) }] },
+    async execute() { return { refreshToken: 'RISKPROOF_OPAQUE_OAUTH_VALUE' }; },
+  });
+  const opaque = await call('riskproof_smoke_file_read');
+  if (!opaque.isError || JSON.stringify(opaque).includes('RISKPROOF_OPAQUE_OAUTH_VALUE')) throw new Error('Installed structured credential guard failed');
   process.stderr.write("RISKPROOF_INSTALL_CHECK_OK\n" + demo + "\n" + outputTrace + "\n");
 }

@@ -139,3 +139,22 @@ late responses from previous selections. It clears the visible snapshot on RPC f
 Polling is bounded to one active read and pauses while the tab is hidden. An active visual
 indicates a pending execution receipt or a newly observed check, never a fabricated scan.
 A green/no-risk count is not a guarantee of safety; observe mode cannot claim an enforced block.
+
+## v0.6 additions and limits
+
+Policy previews run only RiskProof's pre-execution analysis over the current session.
+They never dispatch tools, run approval hooks, allocate retained sessions, create receipts,
+or establish/update identity pins. They cannot predict downstream plugin decisions, tool
+schema validation, actual output or later context changes. The plugin-owned diagnostic
+report exemption is recognized only for the exact registered implementation, as in execution.
+Preview input is bounded and declares `recordInput: false`; the displayed result can still
+enter DSH command logs. Use synthetic values. Results omit arguments and raw evidence;
+validation errors never echo JSON parser input.
+
+Exact credential-field detection covers nested non-empty strings, including opaque OAuth
+tokens, TOTP secrets and private keys. Unrelated summary fields do not gain labels merely
+from similar names. This does not cover arbitrary renamed, encoded, split or numeric secrets.
+Output traversal is bounded; evaluation failure continues to block in enforce mode.
+Detected output labels cannot be removed by trusted declassification. Existing conservative
+tool-source labels are unchanged; there is no vault or permission-plugin exemption.
+See [policy previews and credential fields](policy-preview.md).

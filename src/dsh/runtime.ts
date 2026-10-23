@@ -8,6 +8,7 @@
 // ============================================================================
 
 import type { Context } from "@deepseek-ai/cordis";
+import type { Agent } from "@deepseek-ai/dsh-agent";
 import type {
   PostToolDecision,
   PreToolDecision,
@@ -267,11 +268,22 @@ export class RiskProofRuntime {
     this.state.get(agentId).taskMode = mode;
   }
 
+  /** Evaluate this plugin only; never dispatch, record, approve or pin a tool. */
+  preview(name: string, args: Record<string, unknown>, agent?: Agent): SecurityDecision {
+    if (!this.ctx.tools.get(name, agent)) throw new TypeError("tool is not registered in this session");
+    if (this.isDiagnostic({ name, agent })) return {
+      decision: "allow", riskLevel: "low", matchedRules: [], reason: "trusted RiskProof diagnostic",
+      evidence: [], remediations: [], provenance: {}, taints: {},
+      toolchain: { ...EMPTY_TOOLCHAIN_STATE, path: [] }, timestamp: new Date().toISOString(),
+    };
+    return this.evaluate({ name, arguments: args, agent, callId: "preview" as ToolExecution["callId"] }, true);
+  }
+
   markDiagnostic(name: string): void {
     this.diagnostics.set(name, this.ctx.tools.get(name)?.execute);
   }
 
-  private isDiagnostic(exec: ToolExecution): boolean {
+  private isDiagnostic(exec: Pick<ToolExecution, "name" | "agent">): boolean {
     const registered = this.diagnostics.get(exec.name);
     return registered !== undefined && registered === this.ctx.tools.get(exec.name, exec.agent)?.execute;
   }
@@ -330,12 +342,15 @@ export class RiskProofRuntime {
     };
   }
 
-  private evaluate(exec: ToolExecution): SecurityDecision & Required<Pick<SecurityProof, "identity" | "sources">> {
+  private evaluate(
+    exec: Pick<ToolExecution, "name" | "arguments" | "agent" | "callId" | "parent">,
+    preview = false,
+  ): SecurityDecision & Required<Pick<SecurityProof, "identity" | "sources">> {
     const capabilities = this.resolver.resolve(exec.name, exec.agent);
-    const session = this.state.get(exec.agent?.id);
+    const session = preview ? this.state.preview(exec.agent?.id) : this.state.get(exec.agent?.id);
     const definition = this.ctx.tools.get(exec.name, exec.agent) ?? this.ctx.tools.get(exec.name);
     const digest = toolFingerprint(definition ?? { name: exec.name });
-    const identityStatus = session.identity.check(exec.name, digest);
+    const identityStatus = preview ? session.identity.inspect(exec.name, digest) : session.identity.check(exec.name, digest);
     const args = argumentsAsRecord(exec.arguments);
 
     let provenance = Object.create(null) as Record<string, string[]>;

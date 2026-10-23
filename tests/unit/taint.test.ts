@@ -7,6 +7,30 @@ import {
 } from "../../src/core/taint.js";
 
 describe("taint inference", () => {
+  it.each(["accessToken", "refresh_token", "API-KEY", "authorization", "clientSecret", "privateKey", "otpSecret", "totp_secret", "recoveryCodes", "sessionCookie", "passphrase"])("detects opaque credentials in nested %s fields", field => {
+    expect(detectValueTaints({ entries: [{ [field]: ["opaque-value"] }] })).toContain("SECRET");
+    expect(enrichArgumentTaints({ entries: [{ [field]: "opaque-value" }] }, {}, {})[`entries[0].${field}`]).toContain("SECRET");
+  });
+
+  it.each(["accessToken", "refresh_token", "clientSecret", "privateKey", "otpSecret", "totp_secret", "recoveryCode", "sessionCookie", "passphrase"])("detects %s in serialized output", field => {
+    expect(detectValueTaints(`${field}=opaque-value`)).toContain("SECRET");
+  });
+
+  it("labels OAuth tokens as API keys and recognizes TOTP provisioning URIs", () => {
+    expect(detectValueTaints({ refreshToken: "opaque" })).toContain("API_KEY");
+    expect(detectValueTaints("otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP")).toContain("SECRET");
+  });
+
+  it("does not infer credentials from unrelated summary fields", () => {
+    expect(detectValueTaints({ tokenCount: 12, hasTotp: true, passwordLength: 20, privateKeyCount: 2, accessTokenExpiresAt: "tomorrow" })).toEqual([]);
+    expect(detectValueTaints({ clientSecret: "", otpSecret: false, refreshToken: null })).toEqual([]);
+  });
+
+  it("bounds traversal of structured credentials", () => {
+    let value: unknown = "opaque";
+    for (let i = 0; i < 70; i++) value = { wrapper: value };
+    expect(() => detectValueTaints(value)).toThrow(/depth/);
+  });
   it("detects an API key", () => {
     expect(detectValueTaints("sk-abcdefghijklmnopqrstuvwxyz123456")).toContain("API_KEY");
   });
